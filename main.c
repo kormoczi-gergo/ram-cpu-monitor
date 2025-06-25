@@ -2,14 +2,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <unistd.h> // pausing execution
-#include <gtk/gtk.h> //   gcc main.c -o mtool $(pkg-config --cflags gtk+-3.0 --libs gtk+-3.0)
+#include <gtk/gtk.h> //   gcc analytics.c -o an $(pkg-config --cflags gtk+-3.0 --libs gtk+-3.0)
 #include <glib/gtypes.h>
 
 /*functions used*/
 int strToDigits(char[]);
+void storeStatistics(const char[], const double);
 gboolean updateRamInfo(gpointer user_data);
 gboolean updateCpuInfo(gpointer user_data);
+
+
 
 GtkWidget *total, *available, *bar, *used; //global gtk widgets for ram
 GtkWidget *cpuUsage, *cpuBar; // global widgets for cpu
@@ -23,6 +25,10 @@ unsigned long long cpuInfos[20]; //stores 2 set of cpu datas
 /*___CREATE_WINDOW__,__EXECUTE_INFO_ACCESS_FUNCTION___*/
 int main(int argc, char const *argv[])
 {
+
+    char *userPath;
+    userPath = getenv("HOME");
+
     GtkWidget *window, *grid;
     gtk_init(&argc, (char ***)&argv);
 
@@ -58,7 +64,7 @@ int main(int argc, char const *argv[])
     
     updateRamInfo(NULL); //execute at the start before the 1 second passes
     g_timeout_add(1000, updateRamInfo, NULL); //execute function in a 1 second intervall
-    g_timeout_add(2000, updateCpuInfo, NULL);
+    g_timeout_add(1500, updateCpuInfo, NULL);
 
     gtk_widget_show_all(window); //show all window
     gtk_main(); //runs gtk
@@ -127,6 +133,10 @@ gboolean updateRamInfo(gpointer user_data){
     strncat(usedMemoryText, usedMemoryGb, sizeof(usedMemoryGb));
     gtk_label_set_text(GTK_LABEL(used), usedMemoryText);
 
+
+    //store statistics into a text file
+    storeStatistics("/ramdata.txt", usageRate * 100);
+
     return 1; // 1 == G_TRUE  ||  returned ->= keep running the g_timeout
 }
 
@@ -188,13 +198,40 @@ gboolean updateCpuInfo(gpointer user_data){
         strncat(cpuUsageText, " %", sizeof(" %"));
         gtk_label_set_text(GTK_LABEL(cpuUsage), cpuUsageText);
 
-
         gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(cpuBar), cpuUsageFraction);
+
+
+        //storing statistics into a text file
+        storeStatistics("/cpudata.txt", cpuUsagePercentage);
 
         readingPhaseToDo = 0;
     }
-
+    
     return 1;
+}
+
+
+//store statistcs
+
+void storeStatistics(const char infoType[40], const double usage){
+    FILE *fileptr;
+   //writing data into file
+    char *userPath;
+    userPath = getenv("HOME");
+
+    char outputRamFile[100] = "\0";
+    strncat(outputRamFile, userPath, sizeof(userPath));
+    strncat(outputRamFile, infoType, 30);
+
+    //opening output file
+    fileptr = fopen(outputRamFile, "a");
+    if(fileptr == NULL){ //handling
+        perror("output couldnt be opened");
+    }
+
+    fprintf(fileptr, "%.2lf\n", usage);
+
+    fclose(fileptr);
 }
 
 
