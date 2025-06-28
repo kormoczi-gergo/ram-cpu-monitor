@@ -150,6 +150,7 @@ gboolean updateRamInfo(gpointer user_data){
 
     char buffer[200];
     for(int i = 0; i < 25; i++){    //assign input for needed variables
+        memset(buffer, 0, sizeof(buffer));
         strncpy(buffer, meminfo[i], sizeof(buffer) - 1);
         if (strncmp(buffer, "MemTotal", sizeof("MemTotal")-1 ) == 0){
             totalRamkB = strToDigits(buffer);
