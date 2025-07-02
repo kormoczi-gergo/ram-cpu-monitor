@@ -1,12 +1,10 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <gtk/gtk.h> //   gcc analytics.c -o mtool $(pkg-config --cflags gtk+-3.0 --libs gtk+-3.0)
-#include <glib/gtypes.h>
-#include <stdbool.h>
-#include <sys/stat.h> //for opening a folder
-#include <sys/types.h>
+#include <stdio.h> // file openeing, some string manipulation
+#include <stdlib.h> // atoi, strtod, getenv
+#include <string.h> // string manipulation
+#include <ctype.h> //isdigit
+#include <gtk/gtk.h> // gtk3,  gcc main.c -o mtool $(pkg-config --cflags gtk+-3.0 --libs gtk+-3.0)
+#include <stdbool.h> // true, false
+#include <sys/stat.h> // mkdir
 
 #define kbToGbExchange / 1000000.0 //convert amount from Kb to Gb
 
