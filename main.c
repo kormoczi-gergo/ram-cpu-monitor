@@ -13,6 +13,8 @@
 /*functions used*/
 int strToDigits(char[]);
 void storeStatistics(const char[], const double);
+void clearAnalyticLabels(void);
+void popupWindowWithText(const char[]);
 gboolean updateRamInfo(gpointer user_data);
 gboolean updateCpuInfo(gpointer user_data);
 gboolean changeAnalyticsBool(gpointer user_data);
@@ -24,6 +26,7 @@ GtkWidget *total, *available, *bar, *used; //global gtk widget for ram
 GtkWidget *cpuUsage, *cpuBar; // global widget for cpu
 GtkWidget *writeAnalyticsButton, *analyzeButton, *clearStoredDataButton; //button to do analytycs
 GtkWidget *avgCpu, *avgRam; //analytic output label
+GtkWidget *cpuMax, *ramMax;
 
 
 int readingPhaseToDo = 0; //counts what cpu stat reading is currently needs to be done
@@ -104,15 +107,22 @@ int main(int argc, char const *argv[])
     gtk_grid_attach(GTK_GRID(grid), clearStoredDataButton, 1, 2, 1, 1);
     g_signal_connect(clearStoredDataButton, "clicked", G_CALLBACK(clearStoredDatas), NULL);
 
+
     //analytic output
     avgCpu = gtk_label_new("\0");
     gtk_grid_attach(GTK_GRID(grid), avgCpu, 1, 3, 1, 1);
 
-    avgRam = gtk_label_new("\0");
-    gtk_grid_attach(GTK_GRID(grid), avgRam, 1, 4, 1, 1);
+    cpuMax = gtk_label_new("\0");
+    gtk_grid_attach(GTK_GRID(grid), cpuMax, 1, 4, 1, 1);
 
+    avgRam = gtk_label_new("\0");
+    gtk_grid_attach(GTK_GRID(grid), avgRam, 1, 5, 1, 1);
+
+    ramMax = gtk_label_new("\0");
+    gtk_grid_attach(GTK_GRID(grid), ramMax, 1, 6, 1, 1);
 
     
+
     updateRamInfo(NULL); //execute at the start before the 1 second passes
     g_timeout_add(1000, updateRamInfo, NULL); //execute function in a 1 second intervall
     updateCpuInfo(NULL);
@@ -268,6 +278,9 @@ gboolean updateCpuInfo(gpointer user_data){
     /*change the status of storing-or not storing datas*/
 
 gboolean changeAnalyticsBool(gpointer user_data){
+
+    clearAnalyticLabels();
+
     if(storeBool == false){
         storeBool = true;
         gtk_button_set_label(GTK_BUTTON(writeAnalyticsButton), "stop writing analytics");
@@ -281,6 +294,8 @@ gboolean changeAnalyticsBool(gpointer user_data){
 
 
 
+
+
     /*Analytics of average usage - output to labels*/
 
 gboolean analyzeStoredData(gpointer user_data){
@@ -288,6 +303,14 @@ gboolean analyzeStoredData(gpointer user_data){
     char *userPath;
     userPath = getenv("HOME");
     char buffer[20];
+    char str[315] = "\0"; //stores a formatted string for labels
+    float number; // stores a percentage of usage
+    float max = 0.0; //stores max percentage of usage
+
+    if(storeBool == true){ //dont analyze if datas is being currently stored
+        popupWindowWithText("Click \"stop wryting analytics\"");
+        return 0;
+    }
 
 
     //CPU
@@ -295,41 +318,61 @@ gboolean analyzeStoredData(gpointer user_data){
     snprintf(outputCpuPath, sizeof(outputCpuPath), "%s/z_mtool/cpudata.txt", userPath);
 
     fileptr = fopen(outputCpuPath, "r");
+    if(fileptr == NULL){
+        return 0;
+    }
+
     int i = 0; //number of data
     long double sum = 0; //summ of datas
     while(fgets(buffer, sizeof(buffer), fileptr) != NULL){
         char *ptr;
-        sum += strtod(buffer, &ptr);
+        number = strtod(buffer, &ptr);
+        sum += number;
         i++;
+        if(number > max){
+            max = number;
+        }
     }
     float avg = sum / i;
-
-    //output
-    char avgStr[315] = "\0"; //stores average usage for a specified part in a formatted string
-    snprintf(avgStr, sizeof(avgStr), "average cpu usage: %.3lf %%", avg); //converting double to string
-    gtk_label_set_text(GTK_LABEL(avgCpu), avgStr);
     fclose(fileptr);
 
 
+    //output
+    snprintf(str, sizeof(str), "average cpu usage: %.3lf %%", avg); //converting double to string
+    gtk_label_set_text(GTK_LABEL(avgCpu), str);
+    snprintf(str, sizeof(str), "Largest usage of cpu: %.3lf %%", max);
+    gtk_label_set_text(GTK_LABEL(cpuMax), str);
+
+
     //RAM
+    max = 0.0;
     char ramOutputPath[100] = "\0";    //open file
     snprintf(ramOutputPath, sizeof(ramOutputPath), "%s/z_mtool/ramdata.txt", userPath);
 
     fileptr = fopen(ramOutputPath, "r");
+    if(fileptr == NULL){
+        return 0;
+    }
     i = 0; //count number of data
     sum = 0; //summarize data
     while(fgets(buffer, sizeof(buffer), fileptr) != NULL){
         char *ptr;
-        sum += strtod(buffer, &ptr);
+        number = strtod(buffer, &ptr);
+        sum += number;
         i++;
+        if(number > max){
+            max = number;
+        }
     }
     avg = sum / i;
-    
-    //output
-    memset(avgStr, 0, sizeof(avgStr)); //empty string
-    snprintf(avgStr, sizeof(avgStr), "average ram usage: %.3lf %%", avg);
-    gtk_label_set_text(GTK_LABEL(avgRam), avgStr);
     fclose(fileptr);
+
+    //output
+    snprintf(str, sizeof(str), "average ram usage: %.3lf %%", avg);
+    gtk_label_set_text(GTK_LABEL(avgRam), str);
+    snprintf(str, sizeof(str), "Largest usage of ram: %.3lf %%", max);
+    gtk_label_set_text(GTK_LABEL(ramMax), str);
+
 
     return 1;
 }
@@ -343,6 +386,8 @@ gboolean clearStoredDatas(gpointer user_data){
     FILE *fileptr;
     char *userPath;
     userPath = getenv("HOME");
+
+    clearAnalyticLabels();
 
     //clear ram data
     char outputFilePath[200] = "\0";
@@ -385,13 +430,48 @@ void storeStatistics(const char infoType[40] , const double usage){
 
     //opening output file
     fileptr = fopen(outputPath, "a");
+    
     if(fileptr == NULL){ //handling
-        perror("output couldnt be opened");
+        popupWindowWithText("output file couldnt be opened");
     }
+    else{
+        //write output
+        fprintf(fileptr, "%.2lf\n", usage);
+        fclose(fileptr);
+    }
+}
 
-    //write output
-    fprintf(fileptr, "%.2lf\n", usage);
-    fclose(fileptr);
+
+
+
+
+/*Clear labels in analytic field*/
+
+void clearAnalyticLabels(void){
+    gtk_label_set_text(GTK_LABEL(avgCpu), "\0");
+    gtk_label_set_text(GTK_LABEL(cpuMax), "\0");
+    gtk_label_set_text(GTK_LABEL(avgRam), "\0");
+    gtk_label_set_text(GTK_LABEL(ramMax), "\0");
+}
+
+
+
+
+
+/*popup window*/
+
+void popupWindowWithText(const char text[]){
+    GtkWidget *popupWindow, *grid, *label;
+
+    popupWindow = gtk_window_new(GTK_WINDOW_TOPLEVEL); //create window
+    gtk_window_set_default_size(GTK_WINDOW(popupWindow), 300, 100);
+    gtk_window_set_resizable(GTK_WINDOW(popupWindow), FALSE);
+    gtk_window_set_position(GTK_WINDOW(popupWindow), GTK_WIN_POS_CENTER);
+
+    label = gtk_label_new(text);
+    gtk_container_add(GTK_CONTAINER(popupWindow), label);
+
+    gtk_widget_show_all(popupWindow);
 }
 
 
